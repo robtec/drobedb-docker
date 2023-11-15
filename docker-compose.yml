@@ -1,0 +1,35 @@
+services:
+
+  traefik:
+    image: traefik:v2.9
+    restart: always
+    command:
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "/etc/letsencrypt:/letsencrypt"
+    depends_on:
+      - registry
+    ports:
+      - 80:80
+      - 443:443
+
+  registry:
+    image: dronedb/registry
+    restart: always
+    expose:
+      - 5000
+    volumes:
+      - /etc/dronedb/data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.registry.rule=Host(`${PRIMARY_DOMAIN}`)"
+      - "traefik.http.services.registry.loadbalancer.server.port=5000"
+      - "traefik.http.routers.registry.entrypoints=websecure"
+      - "traefik.http.routers.registry.tls.certresolver=myresolver"
